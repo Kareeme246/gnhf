@@ -159,6 +159,85 @@ function isOpenCodeModel(model: string): boolean {
   return slashIndex > 0 && slashIndex < model.length - 1;
 }
 
+// Best-effort extraction of a flag's value for TUI display only - never used
+// to decide what gnhf actually passes to the agent CLI. Matches "--flag value"
+// and "--flag=value".
+function findFlagValue(args: string[], flags: string[]): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    for (const flag of flags) {
+      if (arg === flag) return args[i + 1];
+      if (arg.startsWith(`${flag}=`)) return arg.slice(flag.length + 1);
+    }
+  }
+  return undefined;
+}
+
+function stripQuotes(value: string): string {
+  const match = /^(["'])(.*)\1$/.exec(value);
+  return match ? match[2]! : value;
+}
+
+// Codex's generic "-c key=value" config override, used by the documented
+// agentArgsOverride.codex example for model_reasoning_effort.
+function findCodexConfigOverride(
+  args: string[],
+  key: string,
+): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] !== "-c") continue;
+    const assignment = args[i + 1];
+    if (typeof assignment !== "string") continue;
+    const prefix = `${key}=`;
+    if (assignment.startsWith(prefix)) {
+      return stripQuotes(assignment.slice(prefix.length));
+    }
+  }
+  return undefined;
+}
+
+// Recovers the model/effort a user set via raw agentArgsOverride so the TUI
+// eyebrow can show it even when agentModel/agentEffort are not used. Purely
+// for display - the raw args already reach the agent CLI regardless.
+function modelFromAgentArgs(
+  agent: AgentName,
+  args: string[] | undefined,
+): string | undefined {
+  if (!args) return undefined;
+  switch (agent) {
+    case "codex":
+      return findFlagValue(args, ["--model", "-m"]);
+    case "claude":
+    case "copilot":
+    case "pi":
+    case "cursor":
+      return findFlagValue(args, ["--model"]);
+    case "opencode":
+    case "rovodev":
+      return undefined;
+  }
+}
+
+function effortFromAgentArgs(
+  agent: AgentName,
+  args: string[] | undefined,
+): string | undefined {
+  if (!args) return undefined;
+  switch (agent) {
+    case "claude":
+      return findFlagValue(args, ["--effort"]);
+    case "codex":
+      return findCodexConfigOverride(args, "model_reasoning_effort");
+    case "pi":
+      return findFlagValue(args, ["--thinking"]);
+    case "copilot":
+    case "cursor":
+    case "opencode":
+    case "rovodev":
+      return undefined;
+  }
+}
+
 function humanizeErrorMessage(message: string): string {
   if (message.includes("not a git repository")) {
     return 'This command must be run inside a Git repository. Change into a repo or run "git init" first.';
@@ -1108,6 +1187,19 @@ program
       const effort =
         options.effort ??
         (nativeAgent === "claude" ? config.agentEffort?.claude : undefined);
+      const argsOverrideForAgent = nativeAgent
+        ? config.agentArgsOverride?.[nativeAgent]
+        : undefined;
+      const displayModel =
+        model ??
+        (nativeAgent
+          ? modelFromAgentArgs(nativeAgent, argsOverrideForAgent)
+          : undefined);
+      const displayEffort =
+        effort ??
+        (nativeAgent
+          ? effortFromAgentArgs(nativeAgent, argsOverrideForAgent)
+          : undefined);
       const agent = createAgent(
         config.agent,
         runInfo,
@@ -1177,7 +1269,11 @@ program
         prompt,
         config.agent,
         handleSigInt,
-        { meteorFrequency: options.meteorFrequency, model, effort },
+        {
+          meteorFrequency: options.meteorFrequency,
+          model: displayModel,
+          effort: displayEffort,
+        },
       );
       renderer.start();
 

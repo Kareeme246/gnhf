@@ -1467,6 +1467,142 @@ describe("cli", () => {
     expect(rendererCtor.mock.calls[0]?.[4]).toEqual({ meteorFrequency: 3 });
   });
 
+  it("passes model/effort to the renderer for display when set via agentModel/agentEffort", async () => {
+    const { rendererCtor } = await runCliWithMocks(["ship it"], {
+      agent: "claude",
+      agentPathOverride: {},
+      agentModel: { claude: "claude-sonnet-5" },
+      agentEffort: { claude: "xhigh" },
+      agentArgsOverride: {},
+      acpRegistryOverrides: {},
+      maxConsecutiveFailures: 3,
+      preventSleep: false,
+    });
+
+    expect(rendererCtor.mock.calls[0]?.[4]).toEqual({
+      meteorFrequency: 3,
+      model: "claude-sonnet-5",
+      effort: "xhigh",
+    });
+  });
+
+  it("recovers model/effort for renderer display from raw agentArgsOverride.claude", async () => {
+    const { rendererCtor } = await runCliWithMocks(["ship it"], {
+      agent: "claude",
+      agentPathOverride: {},
+      agentModel: {},
+      agentEffort: {},
+      agentArgsOverride: {
+        claude: ["--model", "claude-sonnet-5", "--effort", "xhigh"],
+      },
+      acpRegistryOverrides: {},
+      maxConsecutiveFailures: 3,
+      preventSleep: false,
+    });
+
+    expect(rendererCtor.mock.calls[0]?.[4]).toEqual({
+      meteorFrequency: 3,
+      model: "claude-sonnet-5",
+      effort: "xhigh",
+    });
+  });
+
+  it("recovers model/effort for renderer display from raw agentArgsOverride.codex", async () => {
+    const { rendererCtor } = await runCliWithMocks(["ship it"], {
+      agent: "codex",
+      agentPathOverride: {},
+      agentModel: {},
+      agentEffort: {},
+      agentArgsOverride: {
+        codex: [
+          "-m",
+          "gpt-5.4",
+          "-c",
+          'model_reasoning_effort="high"',
+          "--full-auto",
+        ],
+      },
+      acpRegistryOverrides: {},
+      maxConsecutiveFailures: 3,
+      preventSleep: false,
+    });
+
+    expect(rendererCtor.mock.calls[0]?.[4]).toEqual({
+      meteorFrequency: 3,
+      model: "gpt-5.4",
+      effort: "high",
+    });
+  });
+
+  it("recovers model/effort for renderer display from raw agentArgsOverride.pi", async () => {
+    const { rendererCtor } = await runCliWithMocks(["ship it"], {
+      agent: "pi",
+      agentPathOverride: {},
+      agentModel: {},
+      agentEffort: {},
+      agentArgsOverride: {
+        pi: [
+          "--provider",
+          "ramp-router",
+          "--model",
+          "deepseek-v4-flash-0731",
+          "--thinking",
+          "high",
+        ],
+      },
+      acpRegistryOverrides: {},
+      maxConsecutiveFailures: 3,
+      preventSleep: false,
+    });
+
+    expect(rendererCtor.mock.calls[0]?.[4]).toEqual({
+      meteorFrequency: 3,
+      model: "deepseek-v4-flash-0731",
+      effort: "high",
+    });
+  });
+
+  it("prefers agentModel/agentEffort over raw agentArgsOverride for display", async () => {
+    const { rendererCtor } = await runCliWithMocks(["ship it"], {
+      agent: "claude",
+      agentPathOverride: {},
+      agentModel: { claude: "opus" },
+      agentEffort: { claude: "low" },
+      agentArgsOverride: {
+        claude: ["--model", "sonnet", "--effort", "high"],
+      },
+      acpRegistryOverrides: {},
+      maxConsecutiveFailures: 3,
+      preventSleep: false,
+    });
+
+    expect(rendererCtor.mock.calls[0]?.[4]).toEqual({
+      meteorFrequency: 3,
+      model: "opus",
+      effort: "low",
+    });
+  });
+
+  it("recovers a display model but not an effort for agents without an effort convention", async () => {
+    const { rendererCtor } = await runCliWithMocks(["ship it"], {
+      agent: "copilot",
+      agentPathOverride: {},
+      agentModel: {},
+      agentEffort: {},
+      agentArgsOverride: {
+        copilot: ["--model", "gpt-5.4"],
+      },
+      acpRegistryOverrides: {},
+      maxConsecutiveFailures: 3,
+      preventSleep: false,
+    });
+
+    expect(rendererCtor.mock.calls[0]?.[4]).toEqual({
+      meteorFrequency: 3,
+      model: "gpt-5.4",
+    });
+  });
+
   it("uses codex as the mock mode agent label", async () => {
     const { loadConfig, rendererCtor } = await runCliWithMocks(["--mock"], {
       agent: "claude",
