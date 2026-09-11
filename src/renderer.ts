@@ -44,6 +44,8 @@ export type RendererExitReason = "interrupted" | "stopped";
 
 export interface RendererOptions {
   meteorFrequency?: number;
+  model?: string;
+  effort?: string;
 }
 
 // ── ANSI helpers ─────────────────────────────────────────────
@@ -115,7 +117,11 @@ function eyebrowSegments(agentName: string): string[] {
   return [agentName];
 }
 
-export function renderTitleCells(agentName?: string): Cell[][] {
+export function renderTitleCells(
+  agentName?: string,
+  model?: string,
+  effort?: string,
+): Cell[][] {
   const segments = agentName ? eyebrowSegments(agentName) : [];
   const separator: Cell[] = [
     ...textToCells("  ", "normal"),
@@ -130,8 +136,19 @@ export function renderTitleCells(agentName?: string): Cell[][] {
     ]),
   ];
 
+  const modelEffortSegments = [model, effort].filter(
+    (segment): segment is string => !!segment,
+  );
+  const modelEffortRow: Cell[] = modelEffortSegments.flatMap(
+    (segment, index) => [
+      ...(index === 0 ? [] : separator),
+      ...textToCells(spacedLabel(segment), "dim"),
+    ],
+  );
+
   return [
     eyebrow,
+    modelEffortRow,
     [],
     textToCells(
       "┏━╸┏━┓┏━┓╺┳┓   ┏┓╻╻┏━╸╻ ╻╺┳╸   ╻ ╻┏━┓╻ ╻┏━╸   ┏━╸╻ ╻┏┓╻",
@@ -250,8 +267,12 @@ export function renderMoonStripCells(
 
 // ── String wrappers (preserve existing API) ──────────────────
 
-export function renderTitle(agentName?: string): string[] {
-  return renderTitleCells(agentName).map(rowToString);
+export function renderTitle(
+  agentName?: string,
+  model?: string,
+  effort?: string,
+): string[] {
+  return renderTitleCells(agentName, model, effort).map(rowToString);
 }
 
 export function renderStats(
@@ -509,14 +530,16 @@ export function buildContentCells(
   elapsed: string,
   now: number,
   availableHeight?: number,
+  model?: string,
+  effort?: string,
 ): Cell[][] {
   const isRunning = state.status === "running" || state.status === "waiting";
   const moonRows = renderMoonStripCells(state.iterations, isRunning, now);
   const maxRows = availableHeight ?? Infinity;
   if (maxRows <= 0) return [];
 
-  const titleCells = renderTitleCells(agentName);
-  const titleSpacer = titleCells[1] ?? [];
+  const titleCells = renderTitleCells(agentName, model, effort);
+  const titleSpacer = titleCells[2] ?? [];
   const promptLines = wordWrap(prompt, CONTENT_WIDTH, MAX_PROMPT_LINES);
   const promptRows: Cell[][] = [];
   for (let i = 0; i < MAX_PROMPT_LINES; i++) {
@@ -526,8 +549,8 @@ export function buildContentCells(
 
   const sections = {
     top: [[]] as Cell[][],
-    eyebrow: [titleCells[0], [], []] as Cell[][],
-    art: titleCells.slice(2),
+    eyebrow: [titleCells[0], titleCells[1], []] as Cell[][],
+    art: titleCells.slice(3),
     prompt: [titleSpacer, ...promptRows, [], []] as Cell[][],
     stats: [
       renderStatsCells(
@@ -613,6 +636,8 @@ export function buildFrameCells(
   topMeteors: Meteor[] = [],
   bottomMeteors: Meteor[] = [],
   sideMeteors: Meteor[] = [],
+  model?: string,
+  effort?: string,
 ): Cell[][] {
   const elapsed = formatElapsed(now - state.startTime.getTime());
   const reservedBottomRows = 2;
@@ -624,6 +649,8 @@ export function buildFrameCells(
     elapsed,
     now,
     availableHeight,
+    model,
+    effort,
   );
 
   while (contentRows.length < Math.min(BASE_CONTENT_ROWS, availableHeight)) {
@@ -711,10 +738,19 @@ export function buildContentLines(
   state: OrchestratorState,
   elapsed: string,
   now: number,
+  model?: string,
+  effort?: string,
 ): string[] {
-  return buildContentCells(prompt, agentName, state, elapsed, now).map(
-    rowToString,
-  );
+  return buildContentCells(
+    prompt,
+    agentName,
+    state,
+    elapsed,
+    now,
+    undefined,
+    model,
+    effort,
+  ).map(rowToString);
 }
 
 export function buildFrame(
@@ -727,6 +763,8 @@ export function buildFrame(
   now: number,
   terminalWidth: number,
   terminalHeight: number,
+  model?: string,
+  effort?: string,
 ): string {
   const cells = buildFrameCells(
     prompt,
@@ -738,6 +776,11 @@ export function buildFrame(
     now,
     terminalWidth,
     terminalHeight,
+    [],
+    [],
+    [],
+    model,
+    effort,
   );
   return "\x1b[H" + cells.map(rowToString).join("\n");
 }
@@ -748,6 +791,8 @@ export class Renderer {
   private orchestrator: Orchestrator;
   private prompt: string;
   private agentName: string;
+  private model?: string;
+  private effort?: string;
   private state: OrchestratorState;
   private interval: ReturnType<typeof setInterval> | null = null;
   private exitResolve!: (reason: RendererExitReason) => void;
@@ -787,6 +832,8 @@ export class Renderer {
     this.orchestrator = orchestrator;
     this.prompt = prompt;
     this.agentName = agentName;
+    this.model = options.model;
+    this.effort = options.effort;
     this.onInterrupt = onInterrupt;
     this.meteorFrequency = Math.max(
       0,
@@ -926,6 +973,8 @@ export class Renderer {
       this.topMeteors,
       this.bottomMeteors,
       this.sideMeteors,
+      this.model,
+      this.effort,
     );
 
     if (this.isFirstFrame || resized) {

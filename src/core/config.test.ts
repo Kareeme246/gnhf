@@ -60,6 +60,7 @@ describe("loadConfig", () => {
       agent: "claude",
       agentPathOverride: {},
       agentModel: {},
+      agentEffort: {},
       agentArgsOverride: {},
       acpRegistryOverrides: {},
       maxConsecutiveFailures: 3,
@@ -84,6 +85,7 @@ describe("loadConfig", () => {
       agent: "claude",
       agentPathOverride: {},
       agentModel: {},
+      agentEffort: {},
       agentArgsOverride: {},
       acpRegistryOverrides: {},
       maxConsecutiveFailures: 3,
@@ -109,6 +111,7 @@ describe("loadConfig", () => {
       agent: "codex",
       agentPathOverride: {},
       agentModel: {},
+      agentEffort: {},
       agentArgsOverride: {},
       acpRegistryOverrides: {},
       maxConsecutiveFailures: 3,
@@ -168,6 +171,7 @@ describe("loadConfig", () => {
         codex: resolvedCodex,
       },
       agentModel: {},
+      agentEffort: {},
       agentArgsOverride: {},
       acpRegistryOverrides: {},
       maxConsecutiveFailures: 3,
@@ -204,6 +208,7 @@ describe("loadConfig", () => {
       agent: "claude",
       agentPathOverride: {},
       agentModel: {},
+      agentEffort: {},
       agentArgsOverride: {},
       acpRegistryOverrides: {},
       maxConsecutiveFailures: 10,
@@ -220,6 +225,7 @@ describe("loadConfig", () => {
       agent: "claude",
       agentPathOverride: {},
       agentModel: {},
+      agentEffort: {},
       agentArgsOverride: {},
       acpRegistryOverrides: {},
       maxConsecutiveFailures: 3,
@@ -236,6 +242,7 @@ describe("loadConfig", () => {
       agent: "claude",
       agentPathOverride: {},
       agentModel: {},
+      agentEffort: {},
       agentArgsOverride: {},
       acpRegistryOverrides: {},
       maxConsecutiveFailures: 3,
@@ -252,6 +259,7 @@ describe("loadConfig", () => {
       agent: "claude",
       agentPathOverride: {},
       agentModel: {},
+      agentEffort: {},
       agentArgsOverride: {},
       acpRegistryOverrides: {},
       maxConsecutiveFailures: 3,
@@ -261,6 +269,7 @@ describe("loadConfig", () => {
       agent: "claude",
       agentPathOverride: {},
       agentModel: {},
+      agentEffort: {},
       agentArgsOverride: {},
       acpRegistryOverrides: {},
       maxConsecutiveFailures: 3,
@@ -329,6 +338,7 @@ describe("loadConfig", () => {
       agent: "claude",
       agentPathOverride: {},
       agentModel: {},
+      agentEffort: {},
       agentArgsOverride: {},
       acpRegistryOverrides: {},
       maxConsecutiveFailures: 3,
@@ -346,6 +356,7 @@ describe("loadConfig", () => {
       agent: "claude",
       agentPathOverride: {},
       agentModel: {},
+      agentEffort: {},
       agentArgsOverride: {},
       acpRegistryOverrides: {},
       maxConsecutiveFailures: 3,
@@ -516,6 +527,36 @@ describe("loadConfig", () => {
 
     expect(() => loadConfig()).toThrow(
       /Invalid model for agentModel\.claude: expected a string/,
+    );
+  });
+
+  it("reads agentEffort from config", () => {
+    mockReadFileSync.mockReturnValue("agentEffort:\n  claude: high\n");
+
+    const config = loadConfig();
+
+    expect(config.agentEffort).toEqual({ claude: "high" });
+  });
+
+  it("rejects agentEffort for agents other than claude", () => {
+    mockReadFileSync.mockReturnValue("agentEffort:\n  codex: high\n");
+
+    expect(() => loadConfig()).toThrow(
+      /only claude currently supports effort levels/,
+    );
+  });
+
+  it("rejects unknown agents and non-string values in agentEffort", () => {
+    mockReadFileSync.mockReturnValue("agentEffort:\n  unknown-agent: high\n");
+
+    expect(() => loadConfig()).toThrow(
+      /Invalid agent name in agentEffort: "unknown-agent"/,
+    );
+
+    mockReadFileSync.mockReturnValue("agentEffort:\n  claude: 42\n");
+
+    expect(() => loadConfig()).toThrow(
+      /Invalid effort for agentEffort\.claude: expected a string/,
     );
   });
 

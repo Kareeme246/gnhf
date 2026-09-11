@@ -75,6 +75,7 @@ export function redactAgentSpecForLogs(spec: string): string {
 export interface Config {
   agent: AgentSpec;
   agentModel: Partial<Record<AgentName, string>>;
+  agentEffort: Partial<Record<AgentName, string>>;
   agentPathOverride: Partial<Record<AgentName, string>>;
   agentArgsOverride: Partial<Record<AgentName, string[]>>;
   acpRegistryOverrides: Record<string, string>;
@@ -86,6 +87,7 @@ export interface Config {
 const DEFAULT_CONFIG: Config = {
   agent: "claude",
   agentModel: {},
+  agentEffort: {},
   agentPathOverride: {},
   agentArgsOverride: {},
   acpRegistryOverrides: {},
@@ -419,6 +421,47 @@ function normalizeAgentModel(
   return Object.keys(result).length === 0 ? undefined : result;
 }
 
+function normalizeAgentEffort(
+  value: unknown,
+): Partial<Record<AgentName, string>> | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new InvalidConfigError(
+      `Invalid config value for agentEffort: expected an object mapping agent names to effort levels`,
+    );
+  }
+
+  const validNames = new Set<string>(AGENT_NAMES);
+  const result: Partial<Record<AgentName, string>> = {};
+
+  for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+    if (!validNames.has(key)) {
+      throw new InvalidConfigError(
+        `Invalid agent name in agentEffort: "${key}". Use ${formatAgentNameList()}.`,
+      );
+    }
+    if (typeof val !== "string") {
+      throw new InvalidConfigError(
+        `Invalid effort for agentEffort.${key}: expected a string`,
+      );
+    }
+    if (val.trim() === "") {
+      throw new InvalidConfigError(
+        `Invalid effort for agentEffort.${key}: expected a non-empty string`,
+      );
+    }
+    const agent = key as AgentName;
+    if (agent !== "claude") {
+      throw new InvalidConfigError(
+        `Invalid config value for agentEffort.${key}: only claude currently supports effort levels`,
+      );
+    }
+    result[agent] = val.trim();
+  }
+
+  return Object.keys(result).length === 0 ? undefined : result;
+}
+
 function normalizeAcpRegistryOverrides(
   value: unknown,
 ): Record<string, string> | undefined {
@@ -525,6 +568,21 @@ function normalizeConfig(
     delete normalized.agentModel;
   }
 
+  const hasAgentEffort = Object.prototype.hasOwnProperty.call(
+    config,
+    "agentEffort",
+  );
+  if (hasAgentEffort) {
+    const agentEffort = normalizeAgentEffort(config.agentEffort);
+    if (agentEffort === undefined) {
+      delete normalized.agentEffort;
+    } else {
+      normalized.agentEffort = agentEffort;
+    }
+  } else {
+    delete normalized.agentEffort;
+  }
+
   const hasAcpRegistryOverrides = Object.prototype.hasOwnProperty.call(
     config,
     "acpRegistryOverrides",
@@ -616,6 +674,18 @@ function serializeAgentModel(
     .trimEnd();
 }
 
+function serializeAgentEffort(
+  agentEffort: Partial<Record<AgentName, string>>,
+): string {
+  if (Object.keys(agentEffort).length === 0) {
+    return "";
+  }
+
+  return yaml
+    .dump({ agentEffort }, { lineWidth: -1, noRefs: true, sortKeys: false })
+    .trimEnd();
+}
+
 function serializeAgent(agent: AgentSpec): string {
   return yaml
     .dump({ agent }, { lineWidth: -1, noRefs: true, sortKeys: false })
@@ -630,6 +700,7 @@ function serializeConfig(config: Config): string {
     config.agentArgsOverride,
   );
   const agentModelSection = serializeAgentModel(config.agentModel);
+  const agentEffortSection = serializeAgentEffort(config.agentEffort);
   const lines = [
     "# Agent to use by default: native agent name or acp:<target-or-command>",
     serializeAgent(config.agent),
@@ -676,6 +747,11 @@ function serializeConfig(config: Config): string {
     "#   codex: gpt-5.4",
     "#   opencode: fireworks-ai/accounts/fireworks/models/qwen3p6-plus",
     "",
+    "# Effort level for supported native agents (optional)",
+    "# Only claude currently supports this.",
+    "# agentEffort:",
+    "#   claude: high",
+    "",
     "# Custom ACP target commands (optional)",
     "# Maps acp:<target> names to spawn commands. Useful for naming a",
     "# local or beta build of an ACP agent.",
@@ -700,6 +776,10 @@ function serializeConfig(config: Config): string {
 
   if (agentModelSection) {
     lines.push(...agentModelSection.split("\n"));
+  }
+
+  if (agentEffortSection) {
+    lines.push(...agentEffortSection.split("\n"));
   }
 
   lines.push(

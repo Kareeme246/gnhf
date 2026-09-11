@@ -285,6 +285,51 @@ describe("ClaudeAgent", () => {
     expect(fallbackArgs).not.toContain("sonnet");
   });
 
+  it("passes the configured effort level after the model flag", () => {
+    const proc = createMockProcess();
+    mockSpawn.mockReturnValue(proc);
+    const configuredAgent = new ClaudeAgent({
+      model: "sonnet",
+      effort: "high",
+    });
+
+    configuredAgent.run("test prompt", "/work/dir");
+
+    expect(mockSpawn).toHaveBeenCalledWith(
+      "claude",
+      [
+        "--model",
+        "sonnet",
+        "--effort",
+        "high",
+        "-p",
+        "test prompt",
+        "--verbose",
+        "--output-format",
+        "stream-json",
+        "--json-schema",
+        expect.any(String),
+        "--dangerously-skip-permissions",
+      ],
+      expect.any(Object),
+    );
+  });
+
+  it("strips a user-configured --effort flag when an effort level is set", () => {
+    const proc = createMockProcess();
+    mockSpawn.mockReturnValue(proc);
+    const configuredAgent = new ClaudeAgent({
+      extraArgs: ["--effort", "low"],
+      effort: "high",
+    });
+
+    configuredAgent.run("test prompt", "/work/dir");
+
+    const args = mockSpawn.mock.calls[0]![1] as string[];
+    expect(args).toContain("high");
+    expect(args).not.toContain("low");
+  });
+
   it("kills the full process tree on Windows when aborted", async () => {
     const proc = createMockProcess();
     Object.defineProperty(proc, "pid", { value: 5678 });

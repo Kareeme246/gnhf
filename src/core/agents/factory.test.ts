@@ -171,6 +171,21 @@ describe("createAgent", () => {
     expect(agent.name).toBe("claude");
   });
 
+  it("passes the effort level through to the ClaudeAgent", () => {
+    createAgent("claude", stubRunInfo, undefined, undefined, {
+      includeStopField: false,
+      effort: "high",
+    });
+
+    expect(ClaudeAgent).toHaveBeenCalledWith({
+      bin: undefined,
+      extraArgs: undefined,
+      model: undefined,
+      effort: "high",
+      schema: noStopSchema,
+    });
+  });
+
   it("hands ClaudeAgent a schema that requires should_fully_stop when includeStopField is true", () => {
     createAgent("claude", stubRunInfo, undefined, undefined, {
       includeStopField: true,

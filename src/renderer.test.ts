@@ -64,6 +64,35 @@ describe("renderTitle", () => {
     expect(plain).toContain("┃╺┓┃ ┃┃ ┃ ┃┃");
     expect(plain).toContain("┗━┛┗━┛┗━┛╺┻┛");
   });
+
+  it("omits the model/effort line when neither is given", () => {
+    const lines = renderTitle("claude").map(stripAnsi);
+    expect(lines[1]).toBe("");
+  });
+
+  it("renders model and effort as a letter-spaced line under the eyebrow", () => {
+    const lines = renderTitle("claude", "sonnet", "high").map(stripAnsi);
+    expect(lines[0]).toContain("g n h f  ·  c l a u d e");
+    expect(lines[1]).toBe("s o n n e t  ·  h i g h");
+  });
+
+  it("renders just the model when effort is not set", () => {
+    const lines = renderTitle("claude", "sonnet").map(stripAnsi);
+    expect(lines[1]).toBe("s o n n e t");
+  });
+
+  it("renders just the effort when model is not set", () => {
+    const lines = renderTitle("claude", undefined, "high").map(stripAnsi);
+    expect(lines[1]).toBe("h i g h");
+  });
+
+  it("places the model/effort line under the eyebrow and above the ASCII art", () => {
+    const lines = renderTitle("claude", "sonnet", "high").map(stripAnsi);
+    const modelIdx = lines.findIndex((l) => l.includes("s o n n e t"));
+    const artIdx = lines.findIndex((l) => l.includes("┏━╸┏━┓"));
+    expect(modelIdx).toBe(1);
+    expect(artIdx).toBeGreaterThan(modelIdx);
+  });
 });
 
 describe("renderStats", () => {
@@ -743,6 +772,31 @@ describe("buildContentCells adaptive height", () => {
     expect(text).toContain("reading files");
     expect(text).toContain("00:01:00");
     expect(rows).toHaveLength(22);
+  });
+
+  it("shows the model/effort line under the eyebrow without changing row count", () => {
+    const withoutModel = buildContentCells(
+      "my prompt",
+      "claude",
+      state,
+      "00:01:00",
+      0,
+    );
+    const withModel = buildContentCells(
+      "my prompt",
+      "claude",
+      state,
+      "00:01:00",
+      0,
+      undefined,
+      "sonnet",
+      "high",
+    );
+    expect(withModel).toHaveLength(withoutModel.length);
+
+    const lines = withModel.map(rowToString).map(stripAnsi);
+    const eyebrowIndex = lines.findIndex((line) => line.includes("g n h f"));
+    expect(lines[eyebrowIndex + 1]).toBe("s o n n e t  ·  h i g h");
   });
 
   it("keeps the logo separated from both the eyebrow and prompt", () => {

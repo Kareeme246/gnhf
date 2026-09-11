@@ -71,6 +71,7 @@ type ClaudeEvent =
 interface ClaudeAgentDeps {
   bin?: string;
   extraArgs?: string[];
+  effort?: string;
   finalResultGraceMs?: number;
   model?: string;
   platform?: NodeJS.Platform;
@@ -160,14 +161,27 @@ function buildClaudeArgs(
   schema: AgentOutputSchema,
   extraArgs?: string[],
   model?: string,
+  effort?: string,
 ): string[] {
-  const userArgs = (extraArgs ?? []).filter(
-    (arg, index, args) =>
-      model === undefined ||
-      (arg !== "--model" &&
-        !arg.startsWith("--model=") &&
-        args[index - 1] !== "--model"),
-  );
+  const userArgs = (extraArgs ?? []).filter((arg, index, args) => {
+    if (
+      model !== undefined &&
+      (arg === "--model" ||
+        arg.startsWith("--model=") ||
+        args[index - 1] === "--model")
+    ) {
+      return false;
+    }
+    if (
+      effort !== undefined &&
+      (arg === "--effort" ||
+        arg.startsWith("--effort=") ||
+        args[index - 1] === "--effort")
+    ) {
+      return false;
+    }
+    return true;
+  });
   const userSpecifiedPermissionMode = userArgs.some(
     (arg) =>
       arg === "--dangerously-skip-permissions" ||
@@ -180,6 +194,7 @@ function buildClaudeArgs(
   return [
     ...userArgs,
     ...(model === undefined ? [] : ["--model", model]),
+    ...(effort === undefined ? [] : ["--effort", effort]),
     "-p",
     prompt,
     "--verbose",
@@ -249,6 +264,7 @@ export class ClaudeAgent implements Agent {
 
   private bin: string;
   private extraArgs?: string[];
+  private effort?: string;
   private finalResultGraceMs: number;
   private model?: string;
   private platform: NodeJS.Platform;
@@ -258,6 +274,7 @@ export class ClaudeAgent implements Agent {
     const deps = typeof binOrDeps === "string" ? { bin: binOrDeps } : binOrDeps;
     this.bin = deps.bin ?? "claude";
     this.extraArgs = deps.extraArgs;
+    this.effort = deps.effort;
     this.finalResultGraceMs =
       deps.finalResultGraceMs ?? DEFAULT_FINAL_RESULT_EXIT_GRACE_MS;
     this.model = deps.model;
@@ -283,6 +300,7 @@ export class ClaudeAgent implements Agent {
           this.schema,
           this.extraArgs,
           options?.model ?? this.model,
+          this.effort,
         ),
         {
           cwd,

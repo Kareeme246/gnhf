@@ -152,6 +152,8 @@ function parseModel(value: string): string {
   return model;
 }
 
+const parseEffort = parseModel;
+
 function isOpenCodeModel(model: string): boolean {
   const slashIndex = model.indexOf("/");
   return slashIndex > 0 && slashIndex < model.length - 1;
@@ -609,6 +611,11 @@ program
     parseModel,
   )
   .option(
+    "--effort <level>",
+    "Effort level, only supported with --agent claude; overrides agentEffort.claude from config",
+    parseEffort,
+  )
+  .option(
     "--max-iterations <n>",
     "Abort after N total iterations",
     parseNonNegativeInteger,
@@ -619,8 +626,13 @@ program
     parseNonNegativeInteger,
   )
   .option(
+    "--usage-reset",
+    "Wait for an exhausted Claude usage window to reset instead of aborting immediately (default cap 24h; override with --max-rate-limit-wait)",
+    false,
+  )
+  .option(
     "--max-rate-limit-wait <duration>",
-    'Abort after this much total usage-limit wait (e.g. "30m", "2h", or "0")',
+    'Abort after this much total usage-limit wait (e.g. "30m", "2h", or "0"); implies --usage-reset',
     parseDuration,
   )
   .option(
@@ -664,8 +676,10 @@ program
       options: {
         agent?: string;
         model?: string;
+        effort?: string;
         maxIterations?: number;
         maxTokens?: number;
+        usageReset: boolean;
         maxRateLimitWait?: number;
         fallbackModel?: string;
         stopWhen?: string;
@@ -756,6 +770,10 @@ program
         console.error(
           "--fallback-model is only supported with --agent claude.",
         );
+        process.exit(1);
+      }
+      if (options.effort !== undefined && config.agent !== "claude") {
+        console.error("--effort is only supported with --agent claude.");
         process.exit(1);
       }
 
@@ -1045,6 +1063,16 @@ program
         mode: runMode,
       });
 
+      // Waiting out an exhausted usage window is opt-in: without --usage-reset
+      // or an explicit --max-rate-limit-wait, gnhf aborts immediately instead
+      // of silently sitting through a rate limit or overage wait.
+      const effectiveMaxRateLimitWaitMs =
+        options.maxRateLimitWait !== undefined
+          ? options.maxRateLimitWait
+          : options.usageReset
+            ? undefined
+            : 0;
+
       initDebugLog(runInfo.logPath);
       appendDebugLog("run:start", {
         args: redactDebugArgs(process.argv.slice(2)),
@@ -1056,7 +1084,8 @@ program
         startIteration,
         maxIterations: options.maxIterations,
         maxTokens: options.maxTokens,
-        maxRateLimitWaitMs: options.maxRateLimitWait,
+        usageReset: options.usageReset,
+        maxRateLimitWaitMs: effectiveMaxRateLimitWaitMs,
         fallbackModel: options.fallbackModel,
         stopWhen: effectiveStopWhen,
         commitMessage: effectiveCommitMessage,
@@ -1076,6 +1105,9 @@ program
       const model =
         options.model ??
         (nativeAgent ? config.agentModel?.[nativeAgent] : undefined);
+      const effort =
+        options.effort ??
+        (nativeAgent === "claude" ? config.agentEffort?.claude : undefined);
       const agent = createAgent(
         config.agent,
         runInfo,
@@ -1085,6 +1117,7 @@ program
           ...schemaOptions,
           acpRegistryOverrides: config.acpRegistryOverrides,
           model,
+          effort,
         },
       );
       const orchestrator = new Orchestrator(
@@ -1098,9 +1131,9 @@ program
           maxIterations: options.maxIterations,
           maxTokens: options.maxTokens,
           stopWhen: effectiveStopWhen,
-          ...(options.maxRateLimitWait === undefined
+          ...(effectiveMaxRateLimitWaitMs === undefined
             ? {}
-            : { maxRateLimitWaitMs: options.maxRateLimitWait }),
+            : { maxRateLimitWaitMs: effectiveMaxRateLimitWaitMs }),
           ...(options.fallbackModel === undefined
             ? {}
             : { fallbackModel: options.fallbackModel }),
@@ -1144,7 +1177,7 @@ program
         prompt,
         config.agent,
         handleSigInt,
-        { meteorFrequency: options.meteorFrequency },
+        { meteorFrequency: options.meteorFrequency, model, effort },
       );
       renderer.start();
 

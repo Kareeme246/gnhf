@@ -20,6 +20,7 @@ export interface CreateAgentOptions {
   commitFields?: AgentOutputCommitField[];
   acpRegistryOverrides?: Record<string, string>;
   model?: string;
+  effort?: string;
 }
 
 export function createAgent(
@@ -51,6 +52,7 @@ export function createAgent(
         bin: pathOverride,
         extraArgs: agentArgsOverride,
         model: options.model,
+        effort: options.effort,
         schema,
       });
     case "codex":
