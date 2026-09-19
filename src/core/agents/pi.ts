@@ -19,6 +19,7 @@ import {
 interface PiAgentDeps {
   bin?: string;
   extraArgs?: string[];
+  effort?: string;
   model?: string;
   platform?: NodeJS.Platform;
   schema?: AgentOutputSchema;
@@ -94,10 +95,22 @@ When the iteration is complete, your final assistant response must be only valid
 ${JSON.stringify(schema, null, 2)}`;
 }
 
-function buildPiArgs(extraArgs?: string[], model?: string): string[] {
+function buildPiArgs(
+  extraArgs?: string[],
+  model?: string,
+  effort?: string,
+): string[] {
+  const userArgs = (extraArgs ?? []).filter(
+    (arg, index, args) =>
+      effort === undefined ||
+      (arg !== "--thinking" &&
+        !arg.startsWith("--thinking=") &&
+        args[index - 1] !== "--thinking"),
+  );
   return [
-    ...(extraArgs ?? []),
+    ...userArgs,
     ...(model ? ["--model", model] : []),
+    ...(effort ? ["--thinking", effort] : []),
     "--mode",
     "json",
     "--no-session",
@@ -209,6 +222,7 @@ export class PiAgent implements Agent {
 
   private bin: string;
   private extraArgs?: string[];
+  private effort?: string;
   private model?: string;
   private platform: NodeJS.Platform;
   private schema: AgentOutputSchema;
@@ -216,6 +230,7 @@ export class PiAgent implements Agent {
   constructor(deps: PiAgentDeps = {}) {
     this.bin = deps.bin ?? "pi";
     this.extraArgs = deps.extraArgs;
+    this.effort = deps.effort;
     this.model = deps.model;
     this.platform = deps.platform ?? process.platform;
     this.schema =
@@ -231,13 +246,17 @@ export class PiAgent implements Agent {
 
     return new Promise((resolve, reject) => {
       const logStream = logPath ? createWriteStream(logPath) : null;
-      const child = spawn(this.bin, buildPiArgs(this.extraArgs, this.model), {
-        cwd,
-        detached: this.platform !== "win32",
-        shell: shouldUseWindowsShell(this.bin, this.platform),
-        stdio: ["pipe", "pipe", "pipe"],
-        env: process.env,
-      });
+      const child = spawn(
+        this.bin,
+        buildPiArgs(this.extraArgs, this.model, this.effort),
+        {
+          cwd,
+          detached: this.platform !== "win32",
+          shell: shouldUseWindowsShell(this.bin, this.platform),
+          stdio: ["pipe", "pipe", "pipe"],
+          env: process.env,
+        },
+      );
 
       child.stdin?.write(buildPiPrompt(prompt, this.schema));
       child.stdin?.end();

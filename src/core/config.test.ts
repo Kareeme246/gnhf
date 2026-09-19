@@ -530,19 +530,21 @@ describe("loadConfig", () => {
     );
   });
 
-  it("reads agentEffort from config", () => {
-    mockReadFileSync.mockReturnValue("agentEffort:\n  claude: high\n");
+  it("reads agentEffort for claude and pi from config", () => {
+    mockReadFileSync.mockReturnValue(
+      "agentEffort:\n  claude: high\n  pi: xhigh\n",
+    );
 
     const config = loadConfig();
 
-    expect(config.agentEffort).toEqual({ claude: "high" });
+    expect(config.agentEffort).toEqual({ claude: "high", pi: "xhigh" });
   });
 
-  it("rejects agentEffort for agents other than claude", () => {
+  it("rejects agentEffort for agents without an effort flag", () => {
     mockReadFileSync.mockReturnValue("agentEffort:\n  codex: high\n");
 
     expect(() => loadConfig()).toThrow(
-      /only claude currently supports effort levels/,
+      /only claude and pi currently support effort levels/,
     );
   });
 

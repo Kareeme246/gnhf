@@ -18,6 +18,14 @@ export const AGENT_NAMES = [
 
 export type AgentName = (typeof AGENT_NAMES)[number];
 
+// Native agents that support an explicit reasoning/effort level. claude takes
+// it via --effort, pi via --thinking; every other agent has no such flag.
+export const EFFORT_AGENT_NAMES = ["claude", "pi"] as const;
+
+export function supportsEffort(name: AgentName): boolean {
+  return (EFFORT_AGENT_NAMES as readonly string[]).includes(name);
+}
+
 // Agents reached via the bundled acpx runtime: built-in target names,
 // configured registry names, or raw custom ACP server commands. Always
 // written as "acp:<target-or-command>" so the prefix routes to AcpAgent.
@@ -451,9 +459,9 @@ function normalizeAgentEffort(
       );
     }
     const agent = key as AgentName;
-    if (agent !== "claude") {
+    if (!supportsEffort(agent)) {
       throw new InvalidConfigError(
-        `Invalid config value for agentEffort.${key}: only claude currently supports effort levels`,
+        `Invalid config value for agentEffort.${key}: only ${EFFORT_AGENT_NAMES.join(" and ")} currently support effort levels`,
       );
     }
     result[agent] = val.trim();
@@ -748,9 +756,10 @@ function serializeConfig(config: Config): string {
     "#   opencode: fireworks-ai/accounts/fireworks/models/qwen3p6-plus",
     "",
     "# Effort level for supported native agents (optional)",
-    "# Only claude currently supports this.",
+    "# Supported for claude (--effort) and pi (--thinking).",
     "# agentEffort:",
     "#   claude: high",
+    "#   pi: high",
     "",
     "# Custom ACP target commands (optional)",
     "# Maps acp:<target> names to spawn commands. Useful for naming a",

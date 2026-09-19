@@ -112,6 +112,50 @@ describe("PiAgent", () => {
     );
   });
 
+  it("adds the configured effort as --thinking before the mode flags", () => {
+    const proc = createMockProcess();
+    mockSpawn.mockReturnValue(proc);
+    const agent = new PiAgent({ model: "gpt-5.5", effort: "high" });
+
+    agent.run("test prompt", "/work/dir");
+
+    expect(mockSpawn).toHaveBeenCalledWith(
+      "pi",
+      [
+        "--model",
+        "gpt-5.5",
+        "--thinking",
+        "high",
+        "--mode",
+        "json",
+        "--no-session",
+      ],
+      {
+        cwd: "/work/dir",
+        detached: process.platform !== "win32",
+        shell: false,
+        stdio: ["pipe", "pipe", "pipe"],
+        env: process.env,
+      },
+    );
+  });
+
+  it("strips a user-configured --thinking flag when an effort level is set", () => {
+    const proc = createMockProcess();
+    mockSpawn.mockReturnValue(proc);
+    const agent = new PiAgent({
+      extraArgs: ["--thinking", "low", "--provider", "google"],
+      effort: "high",
+    });
+
+    agent.run("test prompt", "/work/dir");
+
+    const args = mockSpawn.mock.calls[0]![1] as string[];
+    expect(args).toContain("high");
+    expect(args).not.toContain("low");
+    expect(args.filter((arg) => arg === "--thinking")).toHaveLength(1);
+  });
+
   it("uses a shell on Windows for cmd wrapper paths", () => {
     const proc = createMockProcess();
     mockSpawn.mockReturnValue(proc);

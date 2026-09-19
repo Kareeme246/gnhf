@@ -17,9 +17,11 @@ import { createInterface } from "node:readline";
 import { Command, InvalidArgumentError } from "commander";
 import {
   AGENT_NAMES,
+  EFFORT_AGENT_NAMES,
   isAgentSpec,
   loadConfig,
   redactAgentSpecForLogs,
+  supportsEffort,
   type AgentName,
   type AgentSpec,
 } from "./core/config.js";
@@ -691,7 +693,7 @@ program
   )
   .option(
     "--effort <level>",
-    "Effort level, only supported with --agent claude; overrides agentEffort.claude from config",
+    `Effort level, supported with --agent ${EFFORT_AGENT_NAMES.join(" or ")}; overrides agentEffort.<agent> from config`,
     parseEffort,
   )
   .option(
@@ -851,8 +853,13 @@ program
         );
         process.exit(1);
       }
-      if (options.effort !== undefined && config.agent !== "claude") {
-        console.error("--effort is only supported with --agent claude.");
+      if (
+        options.effort !== undefined &&
+        !(nativeAgent !== undefined && supportsEffort(nativeAgent))
+      ) {
+        console.error(
+          `--effort is only supported with --agent ${EFFORT_AGENT_NAMES.join(" or ")}.`,
+        );
         process.exit(1);
       }
 
@@ -1186,7 +1193,7 @@ program
         (nativeAgent ? config.agentModel?.[nativeAgent] : undefined);
       const effort =
         options.effort ??
-        (nativeAgent === "claude" ? config.agentEffort?.claude : undefined);
+        (nativeAgent ? config.agentEffort?.[nativeAgent] : undefined);
       const argsOverrideForAgent = nativeAgent
         ? config.agentArgsOverride?.[nativeAgent]
         : undefined;

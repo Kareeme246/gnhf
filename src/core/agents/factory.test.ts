@@ -317,6 +317,22 @@ describe("createAgent", () => {
     expect(agent.name).toBe("pi");
   });
 
+  it("passes model and effort through to the PiAgent", () => {
+    createAgent("pi", stubRunInfo, undefined, undefined, {
+      includeStopField: false,
+      model: "gpt-5.5",
+      effort: "high",
+    });
+
+    expect(PiAgent).toHaveBeenCalledWith({
+      bin: undefined,
+      extraArgs: undefined,
+      model: "gpt-5.5",
+      effort: "high",
+      schema: noStopSchema,
+    });
+  });
+
   it("hands PiAgent a schema that requires should_fully_stop when includeStopField is true", () => {
     createAgent("pi", stubRunInfo, undefined, undefined, {
       includeStopField: true,

@@ -36,6 +36,9 @@ const TEST_REDACT_AGENT_SPEC = (name: string) => {
   const target = name.slice("acp:".length);
   return /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(target) ? name : "acp:custom";
 };
+const TEST_EFFORT_AGENT_NAMES = ["claude", "pi"];
+const TEST_SUPPORTS_EFFORT = (name: string) =>
+  TEST_EFFORT_AGENT_NAMES.includes(name);
 
 const stubRunInfo: RunInfo = {
   runId: "run-abc",
@@ -170,6 +173,8 @@ async function runCliWithMocks(
   vi.doMock("./core/config.js", () => ({
     AGENT_NAMES: TEST_AGENT_NAMES,
     isAgentSpec: TEST_IS_AGENT_SPEC,
+    EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+    supportsEffort: TEST_SUPPORTS_EFFORT,
     redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
     loadConfig,
   }));
@@ -392,6 +397,8 @@ async function runSigintCliTest({
   vi.doMock("./core/config.js", () => ({
     AGENT_NAMES: TEST_AGENT_NAMES,
     isAgentSpec: TEST_IS_AGENT_SPEC,
+    EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+    supportsEffort: TEST_SUPPORTS_EFFORT,
     redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
     loadConfig: vi.fn(() => ({
       agent: "claude",
@@ -548,6 +555,8 @@ async function runCliResumeWithActualRun(
   vi.doMock("./core/config.js", () => ({
     AGENT_NAMES: TEST_AGENT_NAMES,
     isAgentSpec: TEST_IS_AGENT_SPEC,
+    EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+    supportsEffort: TEST_SUPPORTS_EFFORT,
     redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
     loadConfig: vi.fn(() => ({
       agent: "claude",
@@ -769,6 +778,46 @@ describe("cli", () => {
 
     expect(flagResult.createAgent).toHaveBeenCalledWith(
       "claude",
+      stubRunInfo,
+      undefined,
+      undefined,
+      { includeStopField: false, acpRegistryOverrides: {}, effort: "xhigh" },
+    );
+  });
+
+  it("resolves the effort for pi from agentEffort config and --effort", async () => {
+    const { createAgent } = await runCliWithMocks(["ship it"], {
+      agent: "pi",
+      agentPathOverride: {},
+      agentModel: {},
+      agentEffort: { pi: "high" },
+      agentArgsOverride: {},
+      acpRegistryOverrides: {},
+      maxConsecutiveFailures: 3,
+      preventSleep: false,
+    });
+
+    expect(createAgent).toHaveBeenCalledWith(
+      "pi",
+      stubRunInfo,
+      undefined,
+      undefined,
+      { includeStopField: false, acpRegistryOverrides: {}, effort: "high" },
+    );
+
+    const flagResult = await runCliWithMocks(["--effort", "xhigh", "ship it"], {
+      agent: "pi",
+      agentPathOverride: {},
+      agentModel: {},
+      agentEffort: { pi: "high" },
+      agentArgsOverride: {},
+      acpRegistryOverrides: {},
+      maxConsecutiveFailures: 3,
+      preventSleep: false,
+    });
+
+    expect(flagResult.createAgent).toHaveBeenCalledWith(
+      "pi",
       stubRunInfo,
       undefined,
       undefined,
@@ -2142,6 +2191,8 @@ describe("cli", () => {
     vi.doMock("./core/config.js", () => ({
       AGENT_NAMES: TEST_AGENT_NAMES,
       isAgentSpec: TEST_IS_AGENT_SPEC,
+      EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+      supportsEffort: TEST_SUPPORTS_EFFORT,
       redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
       loadConfig,
     }));
@@ -2294,6 +2345,8 @@ describe("cli", () => {
     vi.doMock("./core/config.js", () => ({
       AGENT_NAMES: TEST_AGENT_NAMES,
       isAgentSpec: TEST_IS_AGENT_SPEC,
+      EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+      supportsEffort: TEST_SUPPORTS_EFFORT,
       redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
       loadConfig: vi.fn(() => ({
         agent: "claude",
@@ -2434,6 +2487,8 @@ describe("cli", () => {
     vi.doMock("./core/config.js", () => ({
       AGENT_NAMES: TEST_AGENT_NAMES,
       isAgentSpec: TEST_IS_AGENT_SPEC,
+      EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+      supportsEffort: TEST_SUPPORTS_EFFORT,
       redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
       loadConfig: vi.fn(() => ({
         agent: "claude",
@@ -2570,6 +2625,8 @@ describe("cli", () => {
     vi.doMock("./core/config.js", () => ({
       AGENT_NAMES: TEST_AGENT_NAMES,
       isAgentSpec: TEST_IS_AGENT_SPEC,
+      EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+      supportsEffort: TEST_SUPPORTS_EFFORT,
       redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
       loadConfig: vi.fn(() => ({
         agent: "claude",
@@ -2701,6 +2758,8 @@ describe("cli", () => {
     vi.doMock("./core/config.js", () => ({
       AGENT_NAMES: TEST_AGENT_NAMES,
       isAgentSpec: TEST_IS_AGENT_SPEC,
+      EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+      supportsEffort: TEST_SUPPORTS_EFFORT,
       redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
       loadConfig: vi.fn(() => ({
         agent: "claude",
@@ -2829,6 +2888,8 @@ describe("cli", () => {
     vi.doMock("./core/config.js", () => ({
       AGENT_NAMES: TEST_AGENT_NAMES,
       isAgentSpec: TEST_IS_AGENT_SPEC,
+      EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+      supportsEffort: TEST_SUPPORTS_EFFORT,
       redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
       loadConfig: vi.fn(() => ({
         agent: "claude",
@@ -2950,6 +3011,8 @@ describe("cli", () => {
     vi.doMock("./core/config.js", () => ({
       AGENT_NAMES: TEST_AGENT_NAMES,
       isAgentSpec: TEST_IS_AGENT_SPEC,
+      EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+      supportsEffort: TEST_SUPPORTS_EFFORT,
       redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
       loadConfig: vi.fn(() => ({
         agent: "claude",
@@ -3135,6 +3198,8 @@ describe("cli", () => {
     vi.doMock("./core/config.js", () => ({
       AGENT_NAMES: TEST_AGENT_NAMES,
       isAgentSpec: TEST_IS_AGENT_SPEC,
+      EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+      supportsEffort: TEST_SUPPORTS_EFFORT,
       redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
       loadConfig: vi.fn(() => ({
         agent: "claude",
@@ -3285,6 +3350,8 @@ describe("cli", () => {
     vi.doMock("./core/config.js", () => ({
       AGENT_NAMES: TEST_AGENT_NAMES,
       isAgentSpec: TEST_IS_AGENT_SPEC,
+      EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+      supportsEffort: TEST_SUPPORTS_EFFORT,
       redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
       loadConfig: vi.fn(() => ({
         agent: "claude",
@@ -3464,6 +3531,8 @@ describe("cli", () => {
     vi.doMock("./core/config.js", () => ({
       AGENT_NAMES: TEST_AGENT_NAMES,
       isAgentSpec: TEST_IS_AGENT_SPEC,
+      EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+      supportsEffort: TEST_SUPPORTS_EFFORT,
       redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
       loadConfig: vi.fn(() => ({
         agent: "claude",
@@ -3620,6 +3689,8 @@ describe("cli", () => {
     vi.doMock("./core/config.js", () => ({
       AGENT_NAMES: TEST_AGENT_NAMES,
       isAgentSpec: TEST_IS_AGENT_SPEC,
+      EFFORT_AGENT_NAMES: TEST_EFFORT_AGENT_NAMES,
+      supportsEffort: TEST_SUPPORTS_EFFORT,
       redactAgentSpecForLogs: TEST_REDACT_AGENT_SPEC,
       loadConfig: vi.fn(() => ({
         agent: "claude",

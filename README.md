@@ -208,7 +208,7 @@ If you run `gnhf` on an existing `gnhf/` branch with a different prompt, gnhf as
 | ---------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------- |
 | `--agent <agent>`                  | Agent to use: a native agent name or `acp:<target-or-command>`; see [Agents](#agents)              | config file (`claude`) |
 | `--model <model>`                  | Model for the agent; overrides `agentModel.<agent>` from the config file                           | config file            |
-| `--effort <level>`                 | Effort level, only supported with `--agent claude`; overrides `agentEffort.claude` from config     | config file            |
+| `--effort <level>`                 | Effort level, supported with `--agent claude` or `--agent pi`; overrides `agentEffort.<agent>` from config | config file            |
 | `--max-iterations <n>`             | Abort after `n` total iterations                                                                   | unlimited              |
 | `--max-tokens <n>`                 | Abort after `n` total input+output+cache tokens                                                    | unlimited              |
 | `--usage-reset`                    | Wait for an exhausted Claude usage window to reset instead of aborting immediately                 | `false`                |
@@ -277,9 +277,10 @@ agent: claude
 #   opencode: fireworks-ai/accounts/fireworks/models/qwen3p6-plus
 
 # Effort level for supported native agents (optional)
-# Only claude currently supports this.
+# Supported for claude (--effort) and pi (--thinking).
 # agentEffort:
 #   claude: high
+#   pi: high
 
 # Custom ACP target commands (optional)
 # Maps acp:<target> names to spawn commands. Useful for naming a

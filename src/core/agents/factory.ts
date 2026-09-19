@@ -80,6 +80,7 @@ export function createAgent(
         bin: pathOverride,
         extraArgs: agentArgsOverride,
         model: options.model,
+        effort: options.effort,
         schema,
       });
     case "cursor":

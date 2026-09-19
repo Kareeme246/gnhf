@@ -44,9 +44,10 @@ agent: claude
 #   opencode: fireworks-ai/accounts/fireworks/models/qwen3p6-plus
 
 # Effort level for supported native agents (optional)
-# Only claude currently supports this.
+# Supported for claude (--effort) and pi (--thinking).
 # agentEffort:
 #   claude: high
+#   pi: high
 
 # Custom ACP target commands (optional)
 # Maps acp:<target> names to spawn commands. Useful for naming a
